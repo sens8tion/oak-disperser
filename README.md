@@ -1,13 +1,13 @@
-ï»¿# Oak Disperser
+# Oak Disperser
 
 Oak Disperser is a stateless Google Cloud workflow that accepts authorised JSON payloads and fans them out to remote HTTP endpoints to trigger daily actions, refresh lists, or perform lightweight automations. Everything stays within free-tier friendly services (Cloud Functions 2nd gen + Pub/Sub), and no long-lived state is maintained.
 
 ## Architecture
 
-- **Ingest function (`ingest`)** â€” HTTPS Cloud Function (Node.js 18, TypeScript). It authenticates the caller (API key or Google ID token), validates the JSON payload, and publishes a normalised message to Pub/Sub.
-- **Dispatch function (`dispatch`)** â€” Pub/Sub-triggered Cloud Function that pulls each action from the message and executes the HTTP calls with per-action timeouts and status checks.
-- **Pub/Sub topic (`action-dispersal`)** â€” The only hand-off between functions; messages contain everything required to complete each downstream call, so no database or cache is needed.
-- **Secrets & config** â€” Environment variables (backed by Secret Manager in production) store API keys, allowed Google audiences/issuers, and any downstream credentials. Because the system is stateless, replays can be driven by re-publishing the same payload.
+- **Ingest function (`ingest`)** — HTTPS Cloud Function (Node.js 18, TypeScript). It authenticates the caller (API key or Google ID token), validates the JSON payload, and publishes a normalised message to Pub/Sub.
+- **Dispatch function (`dispatch`)** — Pub/Sub-triggered Cloud Function that pulls each action from the message and executes the HTTP calls with per-action timeouts and status checks.
+- **Pub/Sub topic (`action-dispersal`)** — The only hand-off between functions; messages contain everything required to complete each downstream call, so no database or cache is needed.
+- **Secrets & config** — Environment variables (backed by Secret Manager in production) store API keys, allowed Google audiences/issuers, and any downstream credentials. Because the system is stateless, replays can be driven by re-publishing the same payload.
 
 ## Payload contract
 
@@ -133,6 +133,7 @@ The bootstrap flow:
 - optionally generates a key file and uploads `GCP_SA_KEY`, `GCP_PROJECT`, `GCP_REGION`, `PUBSUB_TOPIC`, and optional auth secrets via the GitHub CLI
 
 If you prefer to manage secrets manually, omit the `ConfigureGithubSecrets` / `--configure-github-secrets` flag and upload the generated key to GitHub Actions yourself.
+
 
 
 

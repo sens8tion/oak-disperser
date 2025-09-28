@@ -95,6 +95,43 @@ function Prompt-IfMissing {
   return $input
 }
 
+function Get-RepositoryBaseName {
+  try {
+    $remoteUrl = git config --get remote.origin.url 2>$null
+    if ($remoteUrl -and $remoteUrl -match 'github.com[:/](?<owner>[^/]+)/(?<repo>[^/.]+)') {
+      return $matches.repo
+    }
+  } catch {
+    # ignore
+  }
+
+  try {
+    $root = git rev-parse --show-toplevel 2>$null
+    if ($root) {
+      return Split-Path -Path $root -Leaf
+    }
+  } catch {
+    # ignore
+  }
+
+  return Split-Path -Path (Get-Location) -Leaf
+}
+
+function Sanitize-BaseName {
+  param([string]$Value)
+
+  if (-not $Value) {
+    return $null
+  }
+
+  $sanitized = ($Value -replace '[^a-zA-Z0-9-]', '-').Trim('-')
+  if (-not $sanitized) {
+    return $null
+  }
+
+  return $sanitized
+}
+
 function Ensure-GcloudLogin {
   Write-Host 'Checking gcloud authentication status...' -ForegroundColor Cyan
   if ($DryRun) {
@@ -131,7 +168,7 @@ function Generate-ProjectId {
     $sanitized = $sanitized.Substring(0, [Math]::Min($sanitized.Length, 10))
   }
 
-  $base = "$sanitized-oak-disperser"
+  $base = if ($sanitized -match '(^|-)oak-disperser$') { $sanitized } else { "$sanitized-oak-disperser" }
   if ($base.Length -gt 30) {
     $base = $base.Substring(0, 30)
   }
@@ -465,4 +502,3 @@ if ($ConfigureGithubSecrets) {
 
 Send-StatusNotification "GCP bootstrap completed for project $ProjectId" 'info'
 Write-Host 'GCP bootstrap complete.' -ForegroundColor Green
-
