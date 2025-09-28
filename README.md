@@ -90,3 +90,25 @@ The ingest function disallows unauthenticated calls by default; provide an API k
 - A gated deploy job (runs on `main`) that authenticates with GCP and executes `npm run deploy`
 
 Only after every check passes does the pipeline attempt deployment, giving you a hardened publish path.
+### GCP Bootstrap
+
+Install the Google Cloud SDK (for example on Windows: winget install Google.CloudSDK). Then bootstrap the project resources and CI service account:
+
+`powershell
+# Windows / PowerShell Core
+gcloud --version # ensure the CLI is available
+pwsh -NoProfile -File ./scripts/setup-gcp.ps1 -ProjectId <your-project-id> -Region us-central1 -KeyOutputPath ./gcp-sa-key.json
+`
+`ash
+# macOS / Linux
+./scripts/setup-gcp.sh --project <your-project-id> --region us-central1 --key-output ./gcp-sa-key.json
+`
+
+The scripts will:
+- enable Cloud Functions, Pub/Sub, and Secret Manager APIs
+- create the ction-dispersal Pub/Sub topic (customisable via flag)
+- provision a CI service account with the necessary roles
+- optionally generate a key file for GitHub Actions (--skip-key to opt out)
+
+Upload the generated key to the repository secrets as GCP_SA_KEY, and set GCP_PROJECT, GCP_REGION, and any optional runtime secrets. Subsequent pushes to main will deploy automatically once these values are present.
+
