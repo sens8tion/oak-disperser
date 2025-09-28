@@ -1,13 +1,13 @@
-# Oak Disperser
+ï»¿# Oak Disperser
 
 Oak Disperser is a stateless Google Cloud workflow that accepts authorised JSON payloads and fans them out to remote HTTP endpoints to trigger daily actions, refresh lists, or perform lightweight automations. Everything stays within free-tier friendly services (Cloud Functions 2nd gen + Pub/Sub), and no long-lived state is maintained.
 
 ## Architecture
 
-- **Ingest function (`ingest`)** — HTTPS Cloud Function (Node.js 18, TypeScript). It authenticates the caller (API key or Google ID token), validates the JSON payload, and publishes a normalised message to Pub/Sub.
-- **Dispatch function (`dispatch`)** — Pub/Sub-triggered Cloud Function that pulls each action from the message and executes the HTTP calls with per-action timeouts and status checks.
-- **Pub/Sub topic (`action-dispersal`)** — The only hand-off between functions; messages contain everything required to complete each downstream call, so no database or cache is needed.
-- **Secrets & config** — Environment variables (backed by Secret Manager in production) store API keys, allowed Google audiences/issuers, and any downstream credentials. Because the system is stateless, replays can be driven by re-publishing the same payload.
+- **Ingest function (`ingest`)** â€” HTTPS Cloud Function (Node.js 18, TypeScript). It authenticates the caller (API key or Google ID token), validates the JSON payload, and publishes a normalised message to Pub/Sub.
+- **Dispatch function (`dispatch`)** â€” Pub/Sub-triggered Cloud Function that pulls each action from the message and executes the HTTP calls with per-action timeouts and status checks.
+- **Pub/Sub topic (`action-dispersal`)** â€” The only hand-off between functions; messages contain everything required to complete each downstream call, so no database or cache is needed.
+- **Secrets & config** â€” Environment variables (backed by Secret Manager in production) store API keys, allowed Google audiences/issuers, and any downstream credentials. Because the system is stateless, replays can be driven by re-publishing the same payload.
 
 ## Payload contract
 
@@ -92,34 +92,49 @@ The ingest function disallows unauthenticated calls by default; provide an API k
 Only after every check passes does the pipeline attempt deployment, giving you a hardened publish path.
 ### GCP Bootstrap
 
-Install the Google Cloud SDK (for example on Windows: `winget install Google.CloudSDK`). The helper scripts prompt for missing values, trigger `gcloud auth login` when needed, and can push GitHub secrets automatically.
+Install the Google Cloud SDK (for example):
+
+```powershell
+winget install Google.CloudSDK
+```
+
+The helper scripts prompt for missing values, trigger `gcloud auth login` when needed, and can push GitHub secrets automatically.
 
 **Windows / PowerShell**
 
 ```powershell
-pwsh -NoProfile -File ./scripts/setup-gcp.ps1 -ConfigureGithubSecrets
+powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/setup-gcp.ps1 -ConfigureGithubSecrets
 ```
 
 **macOS / Linux**
 
 ```bash
-./scripts/setup-gcp.sh --configure-github-secrets
+pwsh -NoProfile -File ./scripts/setup-gcp.ps1 -ConfigureGithubSecrets
 ```
 
 Additional switches:
 
-- `-ProjectId/--project`, `-Region/--region`, `-KeyOutputPath/--key-output` to pre-supply values
+- `-ProjectId/--project`, `-BaseProjectName/--base-name`, `-Region/--region`, `-KeyOutputPath/--key-output` to pre-supply values
+- `-BillingAccountId/--billing-account` to link the project to a billing account
+- `-FreeTierThreshold/--free-tier-threshold` to adjust the automatic free-tier guard (default 0.8)
+- `-StatusWebhookUri/--status-webhook` to receive status notifications for key events
 - `-DryRun/--dry-run` to print the planned commands without executing
 - `-SkipKey/--skip-key` to skip service-account key creation
-- `-GithubRepo/--github-repo` if the repo cannot be inferred from `origin`
+- `-ConfigureGithubSecrets/--configure-github-secrets` to update GitHub Actions secrets automatically
 
 The bootstrap flow:
 
 - ensures you are authenticated with `gcloud`
+- creates the project if it does not already exist (deriving an `-oak-disperser` suffix)
 - enables Cloud Functions, Pub/Sub, and Secret Manager APIs
 - creates (or reuses) the `action-dispersal` Pub/Sub topic
 - provisions the CI service account with required roles
+- checks Cloud Functions executions against the free-tier threshold and aborts if you are close to the limit
 - optionally generates a key file and uploads `GCP_SA_KEY`, `GCP_PROJECT`, `GCP_REGION`, `PUBSUB_TOPIC`, and optional auth secrets via the GitHub CLI
 
 If you prefer to manage secrets manually, omit the `ConfigureGithubSecrets` / `--configure-github-secrets` flag and upload the generated key to GitHub Actions yourself.
+
+
+
+
 
