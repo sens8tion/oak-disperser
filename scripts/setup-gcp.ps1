@@ -131,6 +131,25 @@ function Sanitize-BaseName {
 
   return $sanitized
 }
+function Format-ProjectDisplayName {
+  param([string]$Base)
+
+  $baseValue = if ($Base) { $Base } else { 'oak-disperser' }
+  $safe = ($baseValue -replace '[^a-zA-Z0-9 -]', ' ')
+  $safe = ($safe -replace '\s+', ' ').Trim()
+  if (-not $safe) {
+    $safe = 'Oak Disperser'
+  } else {
+    $safe = "Oak Disperser - $safe"
+  }
+
+  if ($safe.Length -gt 30) {
+    $safe = $safe.Substring(0, 30)
+  }
+
+  return $safe
+}
+
 
 function Ensure-GcloudLogin {
   Write-Host 'Checking gcloud authentication status...' -ForegroundColor Cyan
@@ -197,14 +216,16 @@ function Ensure-Project {
   if ($ProjectId) {
     if (-not (Test-ProjectExists $ProjectId)) {
       Write-Host "Project '$ProjectId' not found. Creating it." -ForegroundColor Yellow
-      Invoke-Gcloud projects create $ProjectId --name "Oak Disperser ($ProjectId)" --quiet
+      $displayName = Format-ProjectDisplayName $ProjectId
+      Invoke-Gcloud projects create $ProjectId --name $displayName --quiet
       $created = $true
     }
   } else {
     $base = Prompt-IfMissing -Value $BaseProjectName -Prompt 'Enter base project name (letters, digits, hyphen)' -Default 'oak-disperser'
     $ProjectId = Generate-ProjectId $base
     Write-Host "Creating project '$ProjectId' derived from '$base'." -ForegroundColor Yellow
-    Invoke-Gcloud projects create $ProjectId --name "Oak Disperser ($base)" --quiet
+  $displayName = Format-ProjectDisplayName $base
+  Invoke-Gcloud projects create $ProjectId --name $displayName --quiet
     $created = $true
   }
 
