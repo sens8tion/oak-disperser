@@ -1,0 +1,70 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+env:
+  NODE_VERSION: '20.11.1'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+      - name: Install dependencies (no lifecycle scripts)
+        run: npm ci --ignore-scripts
+      - name: Verify lockfile hooks
+        run: npm run check:lockfiles
+      - name: Lint
+        run: npm run lint
+      - name: Typecheck
+        run: npm run typecheck
+      - name: Test
+        run: npm run test
+      - name: Build
+        run: npm run build
+      - name: Audit dependencies (high severity)
+        run: npm audit --omit=dev --audit-level=high
+
+  deploy:
+    if: github.ref == 'refs/heads/main'
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: production
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+      - name: Install dependencies (no lifecycle scripts)
+        run: npm ci --ignore-scripts
+      - name: Build
+        run: npm run build
+      - id: auth
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+      - uses: google-github-actions/setup-gcloud@v2
+        with:
+          project_id: ${{ secrets.GCP_PROJECT }}
+      - name: Deploy Cloud Functions
+        run: npm run deploy
+        env:
+          GCP_PROJECT: ${{ secrets.GCP_PROJECT }}
+          GCP_REGION: ${{ secrets.GCP_REGION }}
+          PUBSUB_TOPIC: ${{ secrets.PUBSUB_TOPIC }}
+          INGEST_API_KEY: ${{ secrets.INGEST_API_KEY }}
+          ALLOWED_AUDIENCE: ${{ secrets.ALLOWED_AUDIENCE }}
+          ALLOWED_ISSUERS: ${{ secrets.ALLOWED_ISSUERS }}

@@ -1,0 +1,60 @@
+{
+  "name": "oak-disperser",
+  "version": "0.1.0",
+  "description": "Stateless Google Cloud Functions pipeline for authorised JSON dispersal to remote endpoints.",
+  "private": true,
+  "type": "commonjs",
+  "main": "dist/index.js",
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc --project tsconfig.build.json",
+    "lint": "eslint \"{src,test}/**/*.ts\"",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit",
+    "check:lockfiles": "node ./scripts/check-install-scripts.mjs",
+    "ci": "npm run lint && npm run typecheck && npm run test && npm run build && npm run check:lockfiles",
+    "deploy": "node ./scripts/deploy.mjs",
+    "smoke": "vitest run test/smoke.test.ts"
+  },
+  "keywords": [
+    "serverless",
+    "gcp",
+    "cloud-functions",
+    "stateless",
+    "pubsub"
+  ],
+  "author": "sens8tion",
+  "license": "MIT",
+  "engines": {
+    "node": ">=18.17"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/sens8tion/oak-disperser.git"
+  },
+  "bugs": {
+    "url": "https://github.com/sens8tion/oak-disperser/issues"
+  },
+  "homepage": "https://github.com/sens8tion/oak-disperser#readme",
+  "dependencies": {
+    "@google-cloud/functions-framework": "^4.0.0",
+    "@google-cloud/pubsub": "^5.2.0",
+    "google-auth-library": "^10.3.0",
+    "zod": "^4.1.11"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.36.0",
+    "@types/express": "^5.0.3",
+    "@types/node": "^24.5.2",
+    "@typescript-eslint/eslint-plugin": "^8.44.1",
+    "@typescript-eslint/parser": "^8.44.1",
+    "eslint": "^9.36.0",
+    "tsconfig-paths": "^4.2.0",
+    "typescript": "^5.9.2",
+    "typescript-eslint": "^8.44.1",
+    "vitest": "^3.2.4"
+  }
+}
