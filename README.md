@@ -4,10 +4,10 @@ Oak Disperser is a stateless Google Cloud workflow that accepts authorised JSON 
 
 ## Architecture
 
-- **Ingest function (`ingest`)** — HTTPS Cloud Function (Node.js 18, TypeScript). It authenticates the caller (API key or Google ID token), validates the JSON payload, and publishes a normalised message to Pub/Sub.
-- **Dispatch function (`dispatch`)** — Pub/Sub-triggered Cloud Function that pulls each action from the message and executes the HTTP calls with per-action timeouts and status checks.
-- **Pub/Sub topic (`action-dispersal`)** — The only hand-off between functions; messages contain everything required to complete each downstream call, so no database or cache is needed.
-- **Secrets & config** — Environment variables (backed by Secret Manager in production) store API keys, allowed Google audiences/issuers, and any downstream credentials. Because the system is stateless, replays can be driven by re-publishing the same payload.
+- **Ingest function (`ingest`)** - HTTPS Cloud Function (Node.js 18, TypeScript). It authenticates the caller (API key or Google ID token), validates the JSON payload, and publishes a normalised message to Pub/Sub.
+- **Dispatch function (`dispatch`)** - Pub/Sub-triggered Cloud Function that pulls each action from the message and executes the HTTP calls with per-action timeouts and status checks.
+- **Pub/Sub topic (`action-dispersal`)** - The only hand-off between functions; messages contain everything required to complete each downstream call, so no database or cache is needed.
+- **Secrets & config** - Environment variables (backed by Secret Manager in production) store API keys, allowed Google audiences/issuers, and any downstream credentials. Because the system is stateless, replays can be driven by re-publishing the same payload.
 
 ## Payload contract
 
@@ -90,53 +90,37 @@ The ingest function disallows unauthenticated calls by default; provide an API k
 - A gated deploy job (runs on `main`) that authenticates with GCP and executes `npm run deploy`
 
 Only after every check passes does the pipeline attempt deployment, giving you a hardened publish path.
+
 ### GCP Bootstrap
 
-Install the Google Cloud SDK (for example):
+Install the following prerequisites:
 
-```powershell
-winget install Google.CloudSDK
-```
+- Google Cloud SDK (`gcloud`)
+- Terraform >= 1.5 (`terraform`)
+- GitHub CLI (`gh`, optional for secret uploads)
 
-The helper scripts prompt for missing values, trigger `gcloud auth login` when needed, and can push GitHub secrets automatically.
-
-**Windows / PowerShell**
-
-```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/setup-gcp.ps1 -ConfigureGithubSecrets
-```
-
-**macOS / Linux**
+The Terraform configuration that backs the bootstrap flow lives in `infra/gcp`. Run the helper from any platform with Python 3 available:
 
 ```bash
-pwsh -NoProfile -File ./scripts/setup-gcp.ps1 -ConfigureGithubSecrets
+python scripts/setup_gcp.py --configure-github
 ```
 
-Additional switches:
+Useful switches:
 
-- `-ProjectId/--project`, `-BaseProjectName/--base-name`, `-Region/--region`, `-KeyOutputPath/--key-output` to pre-supply values
-- `-BillingAccountId/--billing-account` to link the project to a billing account
-- `-FreeTierThreshold/--free-tier-threshold` to adjust the automatic free-tier guard (default 0.8)
-- `-StatusWebhookUri/--status-webhook` to receive status notifications for key events
-- `-DryRun/--dry-run` to print the planned commands without executing
-- `-SkipKey/--skip-key` to skip service-account key creation
-- `-ConfigureGithubSecrets/--configure-github-secrets` to update GitHub Actions secrets automatically
+- `--project-id`, `--base-name`, `--region`, `--topic`, `--service-account-id`, `--service-account-name`
+- `--billing-account` to link a billing account immediately
+- `--recreate-project` to delete the named project before re-provisioning (requires owner permissions)
+- `--destroy` to run `terraform destroy` for the managed resources (combine with `--dry-run` for a plan)
+- `--key-output` to override the generated key path (defaults to `./gcp-service-account-key.json`)
+- `--dry-run` to execute `terraform plan` without creating keys or touching GitHub secrets
+- `--configure-github` to push `GCP_PROJECT`, `GCP_REGION`, `PUBSUB_TOPIC`, and optional auth secrets via `gh`
 
-The bootstrap flow:
+The script will:
 
-- ensures you are authenticated with `gcloud`
-- creates the project if it does not already exist (deriving an `-oak-disperser` suffix)
-- enables Cloud Functions, Pub/Sub, and Secret Manager APIs
-- creates (or reuses) the `action-dispersal` Pub/Sub topic
-- provisions the CI service account with required roles
-- checks Cloud Functions executions against the free-tier threshold and aborts if you are close to the limit
-- optionally generates a key file and uploads `GCP_SA_KEY`, `GCP_PROJECT`, `GCP_REGION`, `PUBSUB_TOPIC`, and optional auth secrets via the GitHub CLI
+- create (or reuse) the project using the repository name as the project ID
+- link billing when a billing account is supplied
+- run `terraform init/plan/apply` to enable required APIs, manage the Pub/Sub topic, and provision the CI service account with project roles
+- generate a service-account key (unless `--dry-run` is used) and write it to disk
+- optionally upload the key and related configuration to GitHub Actions secrets
 
-If you prefer to manage secrets manually, omit the `ConfigureGithubSecrets` / `--configure-github-secrets` flag and upload the generated key to GitHub Actions yourself.
-
-
-
-
-
-
-
+If you prefer to manage secrets manually, omit `--configure-github` and upload the generated key yourself.
